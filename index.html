@@ -41,40 +41,55 @@
 			.map{
 				width:1000px;
 				height:600px;
-				background: url(./img/map.png);
-				position: fixed;
-				top: 0;
+				display: grid;
+				grid-template-columns: repeat(50, 20px); /* 50 列，每列 20px */
+				grid-template-rows: repeat(30, 20px);   /* 30 行，每行 20px */
+				position: absolute;
+				/* top: 0;
 				left: 0;
 				right: 0;
 				bottom: 0;
-				margin: auto;
+				margin: auto; */
+				top: 50%; 
+				left: 50%;
+				transform: translate(-50%, -50%); /* 将 .map 移动到屏幕中心 */
 				box-shadow: 0px 0px 100px black inset,0px 0px 30px whitesmoke;
 			}
-			/* .tile{
-				width: 20px;
-				height: 20px;
-				background: url(./img/map.png);
-				background-size: cover;
-				
-			} */
-			.map>div{
+			.virtual-container {
+			  position: absolute;
+			  width: 1000px;
+			  height: 600px;
+			  top: 50%; 
+			  left: 50%;
+			  transform: translate(-50%, -50%);
+			  pointer-events: none; /* 确保点击透过虚拟容器 */
+			}
+			.player1,.player2{
 				width:40px;
 				height:40px;
 				position: absolute;
 				background-size: cover;
 				background-repeat: no-repeat;
 			}
-			div.player1{
-				/* background-color: skyblue; */
-				background-image: url('./img/537move.gif');
+			.tile{
+				width: 20px;
+				height: 20px;
+				/* background: url(./img/map.png); */
+				background-color: '#565656';
 				background-size: cover;
-				/* top: 280px;
-				left: 460px; */
+				/* box-shadow: 0px 0px 100px black inset,0px 0px 30px whitesmoke; */
+				box-shadow: inset 0px 0px 1px rgba(175, 175, 175, 1.0);
+				/* background-repeat: repeat; */
 			}
-			div.player2{
+			.player1{
+				/* background-color: skyblue; */
+				background-image: url('./img/537.png');
+				/* top: 0px;
+				left: 0px; */
+			}
+			.player2{
 				/* background-color: indianred; */
-				background-image: url('./img/8move.png');
-				background-size: cover;
+				background-image: url('./img/8.png');
 				/* left: 960px; */
 				/* top: 280px;
 				left: 500px; */
@@ -105,32 +120,86 @@
 			<button>暂停</button>
 		</div>
 		<div class="map">
+			<!-- 这是tile 
+			<div class="tile"></div> -->
+		</div>
+		<div class="virtual-container">
 			<!-- 介素人1 -->
 			<div class="player1"></div>
 			<!-- 介素人2 -->
 			<div class="player2"></div>
-			<!-- 介素道具 -->
-			<div class="daoju"></div>
-				
 		</div>
+		<!-- 介素道具 -->
+		<div class="daoju"></div>
 		<audio src="背景音乐地址" autoplay></audio>
 		<script src="./js/daoju.js"></script>
 		<script>
-		const daoju = new Daoju(".map");
-		console.log(daoju);
+		// const daoju = new Daoju(".map");
+		// console.log(daoju);
 		// daoju.style.backgroundImage = 'url("./img/537.png")';
 		const player1Element = document.querySelector('.player1');
 		const player2Element = document.querySelector('.player2');
-		const player1 = { x: 0, y: 0, speed: 1, frame: 0 };
-		const player2 = { x: 960, y: 0, speed: 1, frame: 0 };
+		const player1 = { x: 0, y: 0, speed: 1.5, frame: 0 };
+		const player2 = { x: 960, y: 0, speed: 1.5, frame: 0 };
 		const mapElement = document.querySelector('.map');
 		const mapSize = {width: mapElement.offsetWidth, height: mapElement.offsetHeight};
 		const playerSize = {width: 40, height: 40};
 		/* console.log(mapSize); */
-		
+		<!-- 控制玩家动画速率 -->
 		let lastAnimTime = 0;
-		const animInterval = 150;
-	
+		const animInterval = 200;
+		
+		let frameCount = 0;
+		
+		let lastLogicUpdate = Date.now();
+		const logicInterval = 50; // 每秒60次逻辑更新
+		
+		const rows = 30;
+		const cols = 50;
+		const mapData = [];
+		<!-- 将每个地块的信息初始化并存储在mapData中 -->
+		for (let y = 0;y < rows;y++){
+			const temp = [];
+			for (let x = 0;x < cols;x++){
+				let c = "#272727";
+				let t = "none";
+				if (x <= 1 && y <= 1){
+					c = "#f1cb7f";
+					t = "player1";
+				}
+				else if (x >= cols-2 && y <= 1){
+					c = "#79a4bf";
+					t = "player2";
+				}
+				temp.push({
+					x,
+					y,
+					color: c,
+					type: t,
+				})
+				
+			}
+			mapData.push(temp);
+		}
+		console.log(mapData);
+		
+		
+		mapElement.innerHTML = "";
+		
+		<!-- 将地图渲染到页面中 -->
+		mapData.forEach((row, y) => {
+		  row.forEach((tile, x) => {
+			const tileElement = document.createElement("div");
+			// console.log(`Rendering tile at x: ${x}, y: ${y}`);
+			tileElement.classList.add("tile");
+			tileElement.style.backgroundColor = tile.color; // 设置背景颜色
+			tileElement.dataset.x = x; // 存储 x 坐标
+			tileElement.dataset.y = y; // 存储 y 坐标
+			mapElement.appendChild(tileElement);
+		  });
+		});
+
+		
 		<!-- 控制人物移动的键盘按键,初始都为false -->
 		const keys = {
 			w: false,
@@ -144,12 +213,22 @@
 		};
 	
 		<!---- 当按键按下时对应按键值为true,直到监听到按键抬起 ---->
+		let lastKeyPressTime = {};// 添加时间记录防止高频事件重复处理
 		document.addEventListener('keydown', (e) => {
-			if (e.key in keys) keys[e.key] = true;
+			if (e.key in keys) {
+				const currentTime = Date.now();
+				if (!lastKeyPressTime[e.key] || currentTime - lastKeyPressTime[e.key] > 10) {
+					keys[e.key] = true;
+					lastKeyPressTime[e.key] = currentTime;
+				}
+			}
 		});
-	
+		
 		document.addEventListener('keyup', (e) => {
-			if (e.key in keys) keys[e.key] = false;
+			if (e.key in keys) {
+				keys[e.key] = false;
+				lastKeyPressTime[e.key] = null;
+			}
 		});
 	
 		<!---- 实现角色移动以及添加动画 ---->
@@ -163,27 +242,115 @@
 			player.x = Math.max(0,Math.min(mapSize.width - playerSize.width,player.x));
 			player.y = Math.max(0,Math.min(mapSize.height - playerSize.height,player.y));
 			
-			if (player == player2){
-				const currentTime = Date.now();
-				if (currentTime - lastAnimTime >= animInterval){
-					player.frame = (player.frame + 1) % 4; // Assume 4 animation frames
-					lastAnimTime = currentTime;
-				}
-			}
 			element.style.top = `${player.y}px`;
 			element.style.left = `${player.x}px`;
-			if (player == player2){
-				element.style.backgroundPosition = `-${player.frame * 40}px 0`; // Move background for animation 
+			
+			//动画，先放着，后面再加
+			// if (player == player2){
+			// 	const currentTime = Date.now();
+			// 	if (currentTime - lastAnimTime >= animInterval){
+			// 		player.frame = (player.frame + 1) % 4; // Assume 4 animation frames
+			// 		lastAnimTime = currentTime;
+			// 		element.style.backgroundPosition = `-${player.frame * 40}px 0`; // Move background for animation 
+			// 	}
+			// }
+		}
+		
+		<!---- 实现角色之间的碰撞 ---->
+		function collideDetection() {
+			const rect1 = player1Element.getBoundingClientRect();
+			const rect2 = player2Element.getBoundingClientRect();
+			
+			return !(
+				rect1.right < rect2.left ||
+				rect2.right < rect1.left ||
+				rect1.bottom < rect2.top ||
+				rect2.bottom < rect1.top
+			);
+		}
+		
+		<!---- 修改地图单元格数据和显示 ---->
+		function updateTile(x, y, newColor,newType) {
+			// 更新数据
+			const tile = mapData[y][x];
+			tile.color = newColor;
+			tile.type = newType;
+		
+			// 更新页面显示
+			// const tileElement = document.querySelector(`.tile[data-x="${x}"][data-y="${y}"]`);
+			const tileElement = tileElements[`${x},${y}`];
+			if (tileElement){
+				tileElement.style.backgroundColor = newColor;
 			}
 		}
-	
+		
+		<!---- 角色移动染色功能 ---->
+		function dye(player) {
+			const dots = [
+				{"x":player.x, "y":player.y},
+				{"x":player.x+20, "y":player.y},
+				// {"x":player.x+40, "y":player.y},
+				{"x":player.x, "y":player.y+20},
+				{"x":player.x+20, "y":player.y+20},
+				// {"x":player.x+40, "y":player.y+20},
+				// {"x":player.x, "y":player.y+40},
+				// {"x":player.x+20, "y":player.y+40},
+				// {"x":player.x+40, "y":player.y+40},
+			];
+			for (let i = 0;i < dots.length;i++){
+				// console.log(dots[i]);
+				const gridY = Math.floor(dots[i].y/20);
+				const gridX = Math.floor(dots[i].x/20);
+				if (player == player1){
+					if (mapData[gridY][gridX].type != "player1"){
+						updateTile(gridX,gridY,"#f1cb7f","player1");
+					}
+				}else if (player == player2){
+					if (mapData[gridY][gridX].type != "player2"){
+						updateTile(gridX,gridY,"#79a4bf","player2");
+					}
+				}
+				
+			}
+		}
+		
+		<!---- 独立逻辑更新模块,控制染色的频率以达到性能要求 ---->
+		function updateLogic() {
+			movePlayer(player1, player1Element, 'w', 'a', 's', 'd');
+		    movePlayer(player2, player2Element, 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight');
+			const now = Date.now();
+			if (now - lastLogicUpdate >= logicInterval) {
+				dye(player1);
+				dye(player2);
+				lastLogicUpdate = now;
+			}
+		}
+		
 		<!---- 游戏主循环 ---->
 		function gameLoop() {
-			movePlayer(player1, player1Element, 'w', 'a', 's', 'd');
-			movePlayer(player2, player2Element, 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight');
+			frameCount++;
+			// movePlayer(player1, player1Element, 'w', 'a', 's', 'd');
+			// movePlayer(player2, player2Element, 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight');
+			updateLogic();
+			if (frameCount % 5 == 0){
+				const iscollide = collideDetection();
+				if (iscollide){
+					console.log('发生碰撞!');
+					//碰撞之后的逻辑
+				}
+			}
+			
 			requestAnimationFrame(gameLoop);
 		}
-	
+		
+		<!-- 将所有tile类的dom元素按照datasetx,y存储在一个对象tileElements中 -->
+		const tileElements = Array.from(document.querySelectorAll('.tile')).reduce((acc, el) => {
+		  const x = parseInt(el.dataset.x, 10);
+		  const y = parseInt(el.dataset.y, 10);
+		  acc[`${x},${y}`] = el;
+		  return acc;
+		}, {});
+		
 		gameLoop();
 		
 		</script>
